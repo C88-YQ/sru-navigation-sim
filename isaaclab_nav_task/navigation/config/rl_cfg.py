@@ -43,6 +43,9 @@ class RslRlPpoActorCriticCfg:
     rnn_num_layers: int = 1
     """The number of layers in the RNN."""
 
+    memory_variant: str = "baseline"
+    """Variant of the SRU memory cell. Supported values include baseline and dual_gated."""
+
     dropout: float = 0.0
     """The dropout rate for the first layer of the actor and critic networks."""
 
