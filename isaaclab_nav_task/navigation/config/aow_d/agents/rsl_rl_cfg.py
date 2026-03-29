@@ -36,6 +36,7 @@ class AowDNavMDPORunnerCfg(RslRlOnPolicyRunnerCfg):
         rnn_hidden_size=512,
         rnn_type="lstm_sru",
         rnn_num_layers=1,
+        memory_variant="dual_gated",
         dropout=0.2,
         num_cameras=1,
         image_input_dims=(64, 5, 8),
@@ -88,6 +89,7 @@ class AowDNavPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         activation="elu",
         rnn_hidden_size=256,
         rnn_type="lstm_sru",
+        memory_variant="dual_gated",
         num_cameras=1,
         image_input_dims=(64, 5, 8),
     )

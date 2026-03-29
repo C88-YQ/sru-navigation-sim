@@ -36,6 +36,7 @@ class B2WNavMDPORunnerCfg(RslRlOnPolicyRunnerCfg):
         rnn_hidden_size=512,
         rnn_type="lstm_sru",
         rnn_num_layers=1,
+        memory_variant="dual_gated",
         dropout=0.2,
         num_cameras=1,
         image_input_dims=(64, 5, 8),  # depth image: 64 channels * 5 * 8 = 2560
@@ -92,6 +93,7 @@ class B2WNavPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         rnn_hidden_size=512,
         rnn_type="lstm_sru",
         rnn_num_layers=1,
+        memory_variant="dual_gated",
         dropout=0.2,
         num_cameras=1,
         image_input_dims=(64, 5, 8),  # depth image: 64 channels * 5 * 8 = 2560
