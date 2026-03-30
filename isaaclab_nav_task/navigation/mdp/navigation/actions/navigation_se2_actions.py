@@ -35,8 +35,14 @@ class PerceptiveNavigationSE2Action(ActionTerm):
         self.low_level_policy.eval()
 
         # prepare joint position actions
-        self.low_level_position_action_term: ActionTerm = self.cfg.low_level_position_action.class_type(cfg.low_level_position_action, env)
-        self.low_level_velocity_action_term: ActionTerm = self.cfg.low_level_velocity_action.class_type(cfg.low_level_velocity_action, env)
+        self.low_level_position_action_term: ActionTerm = self.cfg.low_level_position_action.class_type(
+            cfg.low_level_position_action, env
+        )
+        self.low_level_velocity_action_term: ActionTerm | None = None
+        if self.cfg.low_level_velocity_action is not None:
+            self.low_level_velocity_action_term = self.cfg.low_level_velocity_action.class_type(
+                cfg.low_level_velocity_action, env
+            )
 
         # prepare buffers
         self._action_dim = 3  # [vx, vy, omega]
@@ -46,12 +52,12 @@ class PerceptiveNavigationSE2Action(ActionTerm):
 
         # Low-pass filter state for velocity commands
         self._prev_filtered_velocity_commands = torch.zeros((self.num_envs, self._action_dim), device=self.device)
-        self._low_pass_alpha = self.cfg.low_pass_filter_alpha if hasattr(self.cfg, 'low_pass_filter_alpha') else 0.8
-        self._enable_low_pass_filter = self.cfg.enable_low_pass_filter if hasattr(self.cfg, 'enable_low_pass_filter') else True
+        self._low_pass_alpha = self.cfg.low_pass_filter_alpha if hasattr(self.cfg, "low_pass_filter_alpha") else 0.8
+        self._enable_low_pass_filter = self.cfg.enable_low_pass_filter if hasattr(self.cfg, "enable_low_pass_filter") else True
         # Per-environment per-dimension alpha values (initialized to default, can be randomized per episode)
         # Shape: [num_envs, action_dim] where action_dim = 3 (vx, vy, omega)
         self._per_env_per_dim_low_pass_alpha = torch.full((self.num_envs, self._action_dim), self._low_pass_alpha, device=self.device)
-
+        self._joint_reorder_indices = self._resolve_joint_reorder_indices()
 
     """
     Properties.
@@ -87,6 +93,8 @@ class PerceptiveNavigationSE2Action(ActionTerm):
 
     @property
     def low_level_actions(self) -> torch.Tensor:
+        if self.low_level_velocity_action_term is None:
+            return self._low_level_position_actions
         return torch.cat((self._low_level_position_actions, self._low_level_velocity_actions), dim=1)
 
     @property
@@ -133,17 +141,11 @@ class PerceptiveNavigationSE2Action(ActionTerm):
         if not self._enable_low_pass_filter:
             return velocity_commands
 
-        # Use per-environment per-dimension alpha values for filtering
-        # Shape: [num_envs, action_dim] - already matches velocity_commands shape
         alpha_values = self._per_env_per_dim_low_pass_alpha
-
-        # Apply exponential smoothing (low-pass filter) with per-environment per-dimension alpha
         filtered_commands = (
             alpha_values * self._prev_filtered_velocity_commands
             + (1.0 - alpha_values) * velocity_commands
         )
-
-        # Update previous filtered commands for next iteration
         self._prev_filtered_velocity_commands.copy_(filtered_commands)
 
         return filtered_commands
@@ -154,9 +156,7 @@ class PerceptiveNavigationSE2Action(ActionTerm):
         Args:
             actions (torch.Tensor): The low-level navigation actions.
         """
-        # Store the raw low-level navigation actions
         self._raw_navigation_velocity_actions[:] = actions
-        # Apply the affine transformations
         if not self.cfg.use_raw_actions:
             self._processed_navigation_velocity_actions = (
                 self._raw_navigation_velocity_actions * self._scale + self._offset
@@ -165,23 +165,19 @@ class PerceptiveNavigationSE2Action(ActionTerm):
             self._processed_navigation_velocity_actions[:] = self._raw_navigation_velocity_actions
 
         if self.cfg.policy_distr_type == "gaussian":
-            # scale the actions to the range [-1, 1] for gaussian distribution
             self._processed_navigation_velocity_actions = torch.tanh(self._processed_navigation_velocity_actions)
         elif self.cfg.policy_distr_type == "beta":
-            # scale the actions to the range [-1, 1] for beta distribution
             self._processed_navigation_velocity_actions = (self._processed_navigation_velocity_actions - 0.5) * 2.0
         else:
             raise ValueError(f"Unknown policy distribution type: {self.cfg.policy_distr_type}")
 
-        # compute the current speed of the robot to generate low-level actions based on the current speed
         observations = self._env.observation_manager.compute_group(group_name=self.cfg.observation_group)
         base_lin_vel = observations[:, 0:3]
         vel_xyz = base_lin_vel.norm(dim=1, keepdim=True)
 
-        # [vx, vy, omega]
-        self._processed_navigation_velocity_actions = (self._processed_navigation_velocity_actions + vel_xyz * self._policy_bias) * self._policy_scaling
-
-        # Apply low-pass filter to smooth velocity commands and add delay effect
+        self._processed_navigation_velocity_actions = (
+            self._processed_navigation_velocity_actions + vel_xyz * self._policy_bias
+        ) * self._policy_scaling
         self._processed_navigation_velocity_actions = self.apply_low_pass_filter(self._processed_navigation_velocity_actions)
 
     @torch.inference_mode()
@@ -194,22 +190,32 @@ class PerceptiveNavigationSE2Action(ActionTerm):
             self._prev_low_level_position_actions[:] = self._low_level_position_actions.clone()
             self._prev_low_level_velocity_actions[:] = self._low_level_velocity_actions.clone()
 
-            # Get low level actions from low level policy
             actions_phase = self.low_level_policy(
                 self._env.observation_manager.compute_group(group_name=self.cfg.observation_group)
             )
+            if self._joint_reorder_indices is not None:
+                actions_phase = actions_phase[:, self._joint_reorder_indices]
 
-            # Process actions and bring them in the right order
-            self._low_level_position_actions[:] = actions_phase[:, :self.low_level_position_action_term.action_dim]
-            self._low_level_velocity_actions[:] = actions_phase[:, self.low_level_position_action_term.action_dim:]
+            expected_action_dim = self.low_level_position_action_term.action_dim
+            if self.low_level_velocity_action_term is not None:
+                expected_action_dim += self.low_level_velocity_action_term.action_dim
+            if actions_phase.shape[1] != expected_action_dim:
+                raise ValueError(
+                    f"Low-level policy output dim mismatch: expected {expected_action_dim}, got {actions_phase.shape[1]}."
+                )
 
-            # Process low level actions
+            position_action_dim = self.low_level_position_action_term.action_dim
+            self._low_level_position_actions[:] = actions_phase[:, :position_action_dim]
+            if self.low_level_velocity_action_term is not None:
+                self._low_level_velocity_actions[:] = actions_phase[:, position_action_dim:]
+
             self.low_level_position_action_term.process_actions(self._low_level_position_actions)
-            self.low_level_velocity_action_term.process_actions(self._low_level_velocity_actions)
+            if self.low_level_velocity_action_term is not None:
+                self.low_level_velocity_action_term.process_actions(self._low_level_velocity_actions)
 
-        # Apply low level actions
         self.low_level_position_action_term.apply_actions()
-        self.low_level_velocity_action_term.apply_actions()
+        if self.low_level_velocity_action_term is not None:
+            self.low_level_velocity_action_term.apply_actions()
         self._counter += 1
 
     def reset_low_pass_filter(self, env_ids: torch.Tensor):
@@ -225,11 +231,13 @@ class PerceptiveNavigationSE2Action(ActionTerm):
     """
 
     def _init_buffers(self):
-        # Prepare buffers
         self._raw_navigation_velocity_actions = torch.zeros(self.num_envs, self._action_dim, device=self.device)
         self._processed_navigation_velocity_actions = torch.zeros((self.num_envs, self._action_dim), device=self.device)
         self._low_level_position_actions = torch.zeros(self.num_envs, self.low_level_position_action_term.action_dim, device=self.device)
-        self._low_level_velocity_actions = torch.zeros(self.num_envs, self.low_level_velocity_action_term.action_dim, device=self.device)
+        low_level_velocity_action_dim = 0
+        if self.low_level_velocity_action_term is not None:
+            low_level_velocity_action_dim = self.low_level_velocity_action_term.action_dim
+        self._low_level_velocity_actions = torch.zeros(self.num_envs, low_level_velocity_action_dim, device=self.device)
         self._prev_low_level_position_actions = torch.zeros_like(self._low_level_position_actions)
         self._prev_low_level_velocity_actions = torch.zeros_like(self._low_level_velocity_actions)
         self._low_level_step_dt = self.cfg.low_level_decimation * self._env.physics_dt
@@ -238,3 +246,30 @@ class PerceptiveNavigationSE2Action(ActionTerm):
         self._offset = torch.tensor(self.cfg.offset, device=self.device)
         self._policy_scaling = torch.tensor(self.cfg.policy_scaling, device=self.device).repeat(self.num_envs, 1)
         self._policy_bias = torch.zeros(self.num_envs, self._action_dim, device=self.device)
+
+    def _resolve_joint_reorder_indices(self) -> torch.Tensor | None:
+        """Resolve indices that map policy joint order to the action-term joint order."""
+        if self.cfg.reorder_joint_list is None:
+            return None
+
+        current_joint_names = list(self.low_level_position_action_term._joint_names)
+        if self.low_level_velocity_action_term is not None:
+            current_joint_names += list(self.low_level_velocity_action_term._joint_names)
+
+        policy_joint_names = list(self.cfg.reorder_joint_list)
+        if len(policy_joint_names) != len(current_joint_names):
+            raise ValueError(
+                "Joint reorder list length mismatch: "
+                f"expected {len(current_joint_names)}, got {len(policy_joint_names)}."
+            )
+
+        policy_joint_index = {joint_name: index for index, joint_name in enumerate(policy_joint_names)}
+        missing_joint_names = [joint_name for joint_name in current_joint_names if joint_name not in policy_joint_index]
+        if missing_joint_names:
+            raise ValueError(
+                "Joint reorder list is missing joints required by the action terms: "
+                f"{missing_joint_names}."
+            )
+
+        reorder_indices = [policy_joint_index[joint_name] for joint_name in current_joint_names]
+        return torch.tensor(reorder_indices, dtype=torch.long, device=self.device)

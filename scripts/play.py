@@ -42,6 +42,7 @@ parser.add_argument("--checkpoint", type=str, default=None, help="Path to model 
 parser.add_argument("--use_last_checkpoint", action="store_true", help="Use last checkpoint from logs.")
 parser.add_argument("--export_jit", action="store_true", default=False, help="Export policy as JIT module.")
 parser.add_argument("--export_onnx", action="store_true", default=False, help="Export policy as ONNX model.")
+parser.add_argument("--print_every", type=int, default=50, help="Print debug info every N steps.")
 
 # Append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -259,12 +260,29 @@ def main():
     obs, _ = env.get_observations()
 
     # Simulate environment
+    step_count = 0
     while simulation_app.is_running():
         # Run policy
         with torch.inference_mode():
             actions = policy(obs)
         # Step environment
         obs, _, _, _ = env.step(actions)
+
+        if step_count % args_cli.print_every == 0:
+            action_term = env.unwrapped.action_manager.get_term("velocity_command")
+            robot = env.unwrapped.scene["robot"]
+            policy_action = actions[0].detach().cpu().tolist()
+            processed = action_term.processed_actions[0].detach().cpu().tolist()
+            filtered = action_term.filtered_velocity_commands[0].detach().cpu().tolist()
+            low_level = action_term.low_level_actions[0].detach().cpu()
+            base_lin_vel = robot.data.root_lin_vel_b[0].detach().cpu().tolist()
+            print(
+                f"[STEP {step_count}] high_level={policy_action} processed={processed} filtered={filtered} "
+                f"ll_abs_mean={low_level.abs().mean().item():.4f} ll_first4={low_level[:4].tolist()} "
+                f"base_lin_vel={base_lin_vel}"
+            )
+
+        step_count += 1
 
     # Close the environment
     env.close()

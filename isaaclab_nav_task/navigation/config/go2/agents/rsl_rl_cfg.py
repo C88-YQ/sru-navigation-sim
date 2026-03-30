@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""RSL-RL agent configurations for Go2 navigation tasks."""
-
 from isaaclab.utils import configclass
 
 from isaaclab_nav_task.navigation.config.rl_cfg import (

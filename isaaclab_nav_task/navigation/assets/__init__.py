@@ -7,11 +7,11 @@
 
 import os
 
-# Path to the local data directory containing robots and policies
 ISAACLAB_NAV_TASKS_ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 """Path to the navigation tasks assets data directory."""
 
 from .b2w import *
 from .aow_d import *
+from .go2 import *
 
-__all__ = ["ISAACLAB_NAV_TASKS_ASSETS_DIR", "B2W_CFG", "ANYMAL_D_ON_WHEELS_CFG"]
+__all__ = ["ISAACLAB_NAV_TASKS_ASSETS_DIR", "B2W_CFG", "ANYMAL_D_ON_WHEELS_CFG", "GO2_CFG"]
