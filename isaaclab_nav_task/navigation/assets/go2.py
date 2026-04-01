@@ -11,7 +11,17 @@ import isaaclab.sim as sim_utils
 from isaaclab.actuators import DCMotorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 
-_GO2_URDF_PATH = "/workspace/robot_lab/source/robot_lab/data//Robots/unitree/go2_description/urdf/go2_description.urdf"
+_GO2_URDF_PATH = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "data",
+        "Robots",
+        "Go2",
+        "go2_description",
+        "urdf",
+        "go2_description.urdf",
+    )
+)
 
 __all__ = ["GO2_CFG"]
 
