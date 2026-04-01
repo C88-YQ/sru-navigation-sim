@@ -46,7 +46,8 @@ class Go2NavigationEnvCfg(NavigationEnvCfg):
         self.scene.robot = GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
         self.scene.raycast_camera.prim_path = "{ENV_REGEX_NS}/Robot/base"
-        self.scene.raycast_camera.offset.pos = (0.27, 0.0, 0.12)
+        self.scene.raycast_camera.offset.pos = (0.32715, 0.0, 0.10)
+        self.scene.raycast_camera.offset.rot = (1.0, 0.0, 0.0, 0.0)
         self.scene.height_scanner_critic.prim_path = "{ENV_REGEX_NS}/Robot/base"
 
         self.terminations.base_contact.params = {
