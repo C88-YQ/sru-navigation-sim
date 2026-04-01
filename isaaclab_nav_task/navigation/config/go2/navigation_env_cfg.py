@@ -35,12 +35,13 @@ class Go2NavigationEnvCfg(NavigationEnvCfg):
     def __post_init__(self):
         super().__post_init__()
 
-        from isaaclab_nav_task.navigation.mdp.depth_utils.camera_config import get_camera_config
-        from isaaclab_nav_task.navigation.mdp.observations import initialize_depth_noise_generator
+        # from isaaclab_nav_task.navigation.mdp.depth_utils.camera_config import get_camera_config
+        # from isaaclab_nav_task.navigation.mdp.observations import initialize_depth_noise_generator
 
-        initialize_depth_noise_generator(robot_name="go2", use_jit_precompiled=False)
-        camera_config = get_camera_config("go2")
-        _ = camera_config.resolution
+        # initialize_depth_noise_generator(robot_name="go2", use_jit_precompiled=False)
+        # camera_config = get_camera_config("go2")
+        # _ = camera_config.resolution
+        self.robot_name = "go2"
 
         self.scene.robot = GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
