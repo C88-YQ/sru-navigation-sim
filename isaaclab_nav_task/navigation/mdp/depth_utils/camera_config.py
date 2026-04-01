@@ -71,6 +71,16 @@ ZEDX_CAMERA_CONFIG = CameraConfig(
 )
 """Configuration for ZedX camera (used with b2w and aow_d robots)."""
 
+REALSENSE_D435_GO2_CAMERA_CONFIG = CameraConfig(
+    focal_length=28.0,
+    baseline=0.05,
+    min_depth=0.3,
+    max_depth=5.0,
+    resolution=(64, 40),
+    depth_encoder_path=_get_encoder_path("vae_regnet-realsense-d435-64x40.pth"),
+)
+"""Configuration for Go2 using RealSense D435-style depth settings and the retrained encoder."""
+
 # Default camera configuration
 DEFAULT_CAMERA_CONFIG = ZEDX_CAMERA_CONFIG
 """Default camera configuration (ZedX camera settings)."""
@@ -79,7 +89,7 @@ DEFAULT_CAMERA_CONFIG = ZEDX_CAMERA_CONFIG
 ROBOT_CAMERA_CONFIGS = {
     "b2w": ZEDX_CAMERA_CONFIG,
     "aow_d": ZEDX_CAMERA_CONFIG,
-    "go2": ZEDX_CAMERA_CONFIG,
+    "go2": REALSENSE_D435_GO2_CAMERA_CONFIG,
 }
 """Dictionary mapping robot names to their camera configurations."""
 

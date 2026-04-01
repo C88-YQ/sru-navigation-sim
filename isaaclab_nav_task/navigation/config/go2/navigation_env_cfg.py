@@ -8,6 +8,7 @@
 import os
 
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.sensors import patterns
 from isaaclab.utils import configclass
 
 import isaaclab_nav_task.navigation.mdp as mdp
@@ -48,6 +49,17 @@ class Go2NavigationEnvCfg(NavigationEnvCfg):
         self.scene.raycast_camera.prim_path = "{ENV_REGEX_NS}/Robot/base"
         self.scene.raycast_camera.offset.pos = (0.32715, 0.0, 0.10)
         self.scene.raycast_camera.offset.rot = (1.0, 0.0, 0.0, 0.0)
+        self.scene.raycast_camera.pattern_cfg = patterns.PinholeCameraPatternCfg.from_ros_camera_info(
+            # RealSense D435 datasheet (Rev 023, Mar 2026): depth FOV HD H=87 deg, V=58 deg.
+            # Preserve SRU's 64x40 encoder input by using a 640x400 source frame with 10x downsampling.
+            fx=337.2096,
+            fy=360.8096,
+            cx=320.0,
+            cy=200.0,
+            width=640,
+            height=400,
+            downsample_factor=10,
+        )
         self.scene.height_scanner_critic.prim_path = "{ENV_REGEX_NS}/Robot/base"
 
         self.terminations.base_contact.params = {
