@@ -80,7 +80,7 @@ class Go2NavigationEnvCfg(NavigationEnvCfg):
             ISAACLAB_NAV_TASKS_ASSETS_DIR, "Policies", "locomotion", "go2", "policy.pt"
         )
         self.actions.velocity_command.reorder_joint_list = GO2_JOINT_NAMES
-
+        self.actions.velocity_command.policy_scaling = [1.2, 0.6, 0.8]
         self.rewards.joint_acc_l2_joint.params = {"asset_cfg": SceneEntityCfg("robot", joint_names=GO2_JOINT_NAMES)}
 
         self.observations.low_level_policy.base_lin_vel = None
@@ -98,9 +98,24 @@ class Go2NavigationEnvCfg(NavigationEnvCfg):
         )
         self.observations.low_level_policy.enable_corruption = False
 
-        self.events.randomize_action_scale = None
-        self.events.randomize_low_pass_filter_alpha = None
-        self.events.reset_robot_joints.params = {"position_range": (1.0, 1.0), "velocity_range": (0.0, 0.0)}
+        self.events.randomize_action_scale.params = {
+            "scale_range_x": (0.9, 1.1),
+            "scale_range_y": (0.8, 1.0),
+            "scale_range_theta": (0.85, 1.05),
+            "scale_range_xb": 0.05,
+            "scale_range_yb": 0.1,
+            "scale_range_thetab": 0.05,
+            "action_term": "velocity_command",
+        }
+        self.events.randomize_low_pass_filter_alpha.params = {
+            "alpha_range": (0.1, 0.6),
+            "action_term": "velocity_command",
+            "per_dimension": True,
+            "alpha_range_vx": (0.1, 0.6),
+            "alpha_range_vy": (0.1, 0.6),
+            "alpha_range_omega": (0.1, 0.6),
+        }
+        self.events.reset_robot_joints.params = {"position_range": (0.95, 1.05), "velocity_range": (0.0, 0.0)}
 
         self.scene.terrain.max_init_terrain_level = 10
         self.scene.terrain.terrain_generator.difficulty_range = [0.5, 1.0]
