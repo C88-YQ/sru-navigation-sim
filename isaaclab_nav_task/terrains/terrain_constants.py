@@ -191,7 +191,7 @@ class StairConfig:
     NUM_STEPS: int = 5
 
     # Height of each step in meters
-    STEP_HEIGHT_METERS: float = 0.2
+    STEP_HEIGHT_METERS: float = 0.13
 
     # Grid size for 3x3 stair structures
     STAIR_GRID_SIZE: int = 3

@@ -63,7 +63,7 @@ class Go2NavigationEnvCfg(NavigationEnvCfg):
         self.scene.height_scanner_critic.prim_path = "{ENV_REGEX_NS}/Robot/base"
 
         self.terminations.base_contact.params = {
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["base", ".*_hip", ".*_thigh"]),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["base", ".*_hip"]),
             "threshold": 1.0,
         }
 

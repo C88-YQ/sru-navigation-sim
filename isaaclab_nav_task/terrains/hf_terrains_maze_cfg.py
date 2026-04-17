@@ -66,7 +66,7 @@ class HfMazeTerrainCfg(HfTerrainBaseCfg):
     cell_size: float = 2.0
     """Size of each cell in the maze grid (in meters)."""
 
-    wall_height: float = 1.5
+    wall_height: float = 1.15
     """Height of the walls (in meters). Defaults to 1.5."""
 
     # =========================================================================
